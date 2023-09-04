@@ -1,0 +1,27 @@
+
+
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+# path: dataset # dataset root dir
+# train: split_jyz_tatou_tading_quanta_dota/train/images #images   # train images (relative to 'path') 
+# val: split_jyz_tatou_tading_quanta_dota/val/images #images  # val images (relative to 'path') 
+# test: split_jyz_tatou_tading_quanta_dota/val/images  #images # test images (optional)
+
+# # Classes
+# nc: 4  # number of classes
+# names: ['jyz_outer_boundary','tading','tatou','quanta']  # class names
+
+
+
+path: datasets/DOTAv1/ # dataset root dir
+train: train/images #images   # train images (relative to 'path') 
+val: val/images #images  # val images (relative to 'path') 
+test: val/images  #images # test images (optional)
+
+
+
+nc: 15  # number of classes
+names: ['plane', 'baseball-diamond', 'bridge', 'ground-track-field', 'small-vehicle', 
+        'large-vehicle', 'ship', 'tennis-court', 'basketball-court', 'storage-tank',  
+        'soccer-ball-field', 'roundabout', 'harbor', 'swimming-pool', 'helicopter']  
+# Download script/URL (optional)
+# download: https://ultralytics.com/assets/coco128.zip
