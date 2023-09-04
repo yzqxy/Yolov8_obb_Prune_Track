@@ -15,6 +15,8 @@ I have used utility functions from other wonderful open-source projects. Espeici
 * [Thinklab-SJTU/CSL_RetinaNet_Tensorflow](https://github.com/Thinklab-SJTU/CSL_RetinaNet_Tensorflow).
 * [jbwang1997/OBBDetection](https://github.com/jbwang1997/OBBDetection)
 * [CAPTAIN-WHU/DOTA_devkit](https://github.com/CAPTAIN-WHU/DOTA_devkit)
+* [yolov5_obb](https://github.com/hukaixuan19970627/yolov5_obb/tree/master)
+* [yolov5_obb_prune_tracking](https://github.com/yzqxy/yolov5_obb_prune_tracking/tree/master)
 ## More detailed explanation
 想要了解相关实现的细节和原理可以看我的CSDN文章:   
 * [Yolov8_obb基于anchor_free的旋转框目标检测，剪枝，跟踪](https://blog.csdn.net/qq_39128381/article/details/131962684?spm=1001.2014.3001.5501).
