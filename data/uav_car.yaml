@@ -1,0 +1,20 @@
+
+
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+# path: ./dataset # dataset root dir
+# train: dataset_demo/images #images   # train images (relative to 'path') 
+# val: dataset_demo/images #images  # val images (relative to 'path') 
+# test: dataset_demo/images  #images # test images (optional)
+
+
+
+path: /home/yuanzhengqian/yolov8_obb/datasets/UAV/ # dataset root dir
+# path: /home/yuanzhengqian/yolov8_obb/datasets/35kv_tading_230617/ # dataset root dir
+train: train.txt #images   # train images (relative to 'path') 
+val: val.txt #images  # val images (relative to 'path') 
+test: val.txt  #images # test images (optional)
+
+
+nc: 1  # numbr of classes
+names: ['car',]  
+
