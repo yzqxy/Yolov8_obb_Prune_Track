@@ -60,19 +60,13 @@ python tools/mk_train.py --data_path  data_path
 
 **2. Train**
 
-2.1 Train with specified GPUs. (for example with GPU=3)
-
+2.1 Train your dataset demo.默认是多卡跑
 ```shell
-python train.py --device 3
+python train.py      --data 'data/yolov8obb_demo.yaml'   --hyp 'data/hyps/obb/hyp.finetune_dota.yaml' --cfg models/yolov8n.yaml   --epochs 300   --batch-size 8   --img 640   
 ```
 
-2.2 Train with multiple(4) GPUs. (DDP Mode)
+2.2 单卡跑，需要注释掉train.py中的DDP212-215行，再修改torch_utils.py第83行，return torch.device('cuda:{}'.format(device) if cuda else 'cpu')即可，可指定显卡跑，训练速度更快，多卡训练有点问题
 
-```shell
-python -m torch.distributed.launch --nproc_per_node 4 train.py --device 0,1,2,3
-```
-
-2.3 Train your dataset demo.
 ```shell
 python train.py      --data 'data/yolov8obb_demo.yaml'   --hyp 'data/hyps/obb/hyp.finetune_dota.yaml' --cfg models/yolov8n.yaml   --epochs 300   --batch-size 8   --img 640   --device 1
 ```
