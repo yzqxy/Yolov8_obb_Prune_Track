@@ -47,6 +47,8 @@ cd Yolov8_obb_Prune_Track
                     |────10001.txt
                     |────...
                     └────11000.txt
+     └── train.txt
+     └── val.txt
 ```
 
 ```shell
