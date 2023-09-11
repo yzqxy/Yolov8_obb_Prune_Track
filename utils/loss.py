@@ -102,7 +102,7 @@ class ComputeLoss:
             # weight = target_scores.sum(-1)[fg_mask].unsqueeze(-1).pow(2)
             #边框loss计算
             probloss = probiou_loss(pred_bboxes[fg_mask], target_bboxes[fg_mask])
-            box_loss +=(probloss* weight).sum() / target_scores_sum
+            box_loss +=(probloss* weight).sum() / (target_scores_sum*batch_size )
 
             #边框+角度loss
             # kldloss = self.kld_loss_n(pred_bboxes[fg_mask], target_bboxes[fg_mask])
