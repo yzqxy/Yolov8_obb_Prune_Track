@@ -4,7 +4,7 @@
 Please refer to [install.md](./docs/install.md) for installation and dataset preparation.
 
 # Getting Started 
-This repo is based on [yolov5_obb](https://github.com/hukaixuan19970627/yolov5_obb/tree/master). 
+This repo is based on [yolov5_obb](https://github.com/hukaixuan19970627/yolov5_obb/tree/master). [yolov5_obb_prune_tracking](https://github.com/yzqxy/yolov5_obb_prune_tracking)
 
 And this repo has been rebuilt, Please see [GetStart.md](./docs/GetStart.md) for the Oriented Detection latest basic usage.
 
