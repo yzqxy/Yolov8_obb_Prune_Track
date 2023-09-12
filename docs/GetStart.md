@@ -60,12 +60,12 @@ python tools/mk_train.py --data_path  data_path
 
 **2. Train**
 
-2.1 Train your dataset demo.默认是多卡跑
+2.1 Train your dataset demo.多卡训练
 ```shell
-python train.py      --data 'data/yolov8obb_demo.yaml'   --hyp 'data/hyps/obb/hyp.finetune_dota.yaml' --cfg models/yolov8n.yaml   --epochs 300   --batch-size 128   --img 640   
+python train.py      --data 'data/yolov8obb_demo.yaml'   --hyp 'data/hyps/obb/hyp.finetune_dota.yaml' --cfg models/yolov8n.yaml   --epochs 300   --batch-size 128   --img 640   -- is_use_DP  
 ```
 
-2.2 单卡跑，需要注释掉train.py中的DDP212-215行，再修改torch_utils.py第83行，return torch.device('cuda:{}'.format(device) if cuda else 'cpu')即可，可指定显卡跑
+2.2 单卡训练
 
 ```shell
 python train.py      --data 'data/yolov8obb_demo.yaml'   --hyp 'data/hyps/obb/hyp.finetune_dota.yaml' --cfg models/yolov8n.yaml   --epochs 300   --batch-size 8   --img 640   --device 1
