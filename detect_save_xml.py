@@ -138,10 +138,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
         dt[1] += t3 - t2
 
         # NMS
-        # pred: list*(n, [xylsθ, conf, cls]) θ ∈ [-pi/2, pi/2)
         pred = non_max_suppression_obb(pred, conf_thres, iou_thres, classes, agnostic_nms, multi_label=True, max_det=max_det)
-        print('pred',pred)
-        # print('pred:',pred)
         dt[2] += time_sync() - t3
 
         # Second-stage classifier (optional)
@@ -180,7 +177,6 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
 
                 # Write results
                 for *poly, conf, cls in reversed(det):
-                    # print('poly:',*poly)
                     if save_txt:  # Write to file
                         # xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         poly = poly.tolist()
@@ -189,13 +185,8 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
                     if save_xml:  # Write to file
-                        names=['tading',"jyz_r"]
-
-                        # import pdb
-                        # pdb.set_trace()
-                        # rbox=scale_coords(im.shape[2:], pred, im0.shape)
+                        names=['1','2']
                         rbox=poly2rbox(pred_poly[:,:8].cpu(),use_pi=True, use_gaussian=False)
-                        print('rbox',rbox)
                         
                         img_name=path.split('/')[-1]
                         xml_dir=xml_save_path_dir
@@ -203,7 +194,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                             os.makedirs(xml_dir)
 
                         xml_name=img_name.replace("jpg", "xml").replace("png", "xml").replace("JPG", "xml")
-                        # print('xml_dir+xml_name',xml_dir+'/'+xml_name)
+                        
                         # if not os.path.exists(xml_dir+'/'+xml_name):
                         # 创建根元素
                         doc = Document()
