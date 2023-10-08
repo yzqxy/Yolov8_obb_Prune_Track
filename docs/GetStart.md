@@ -93,6 +93,11 @@ python detect.py --weights  runs/train/exp/weights/best.pt   --source dataset/yo
 python export.py --weights  runs/train/exp/weights/best.pt  --batch 1
 ```
 
+**7. detcet_save_xml**
+测试图片并保存对应的xml文件，可在rolabelimg中打开并进行调整，从而减少标注工作量
+```shell
+python detcet_save_xml.py --save-xml --xml_save_path_dir your_xml_save_path/  --weights  runs/train/exp/weights/best.pt   --source dataset/your datafile/images/val/   --img 640 --device 0 --conf-thres 0.25 --iou-thres 0.2 
+```
 
 # Prune Your Model
 **1.Sparity Train**
