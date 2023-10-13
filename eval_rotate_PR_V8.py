@@ -365,15 +365,33 @@ def creat_annotions(label_path):
             l = np.array(l_, dtype=np.float32)
 
 
-        #存储字典数据到列表用于保存到json文件中
-        jdict.append(
+        # #存储字典数据到列表用于保存到json文件中
+        # jdict.append(
+        #     {
+        #         'image_id': label_name.split('.')[0]+'jpg',
+        #         'category_id': [int(num) for num in l[:,0].tolist()],
+        #         'bbox_score': [poly2rbox(np.array([num]),use_pi=True, use_gaussian=False).tolist()[0] for num in l[:,1:].tolist()]
+        #         }
+        # )
+
+        if len(l)==0:
+            jdict.append(
             {
                 'image_id': label_name.split('.')[0]+'jpg',
-                'category_id': [int(num) for num in l[:,0].tolist()],
-                'bbox_score': [poly2rbox(np.array([num]),use_pi=True, use_gaussian=False).tolist()[0] for num in l[:,1:].tolist()]
+                'category_id': [],
+                'bbox_score': []
                 }
-        )
-
+            )
+        else:            
+            #存储字典数据到列表用于保存到json文件中
+            jdict.append(
+                {
+                    'image_id': label_name.split('.')[0]+'jpg',
+                    'category_id': [int(num) for num in l[:,0].tolist()],
+                    'bbox_score': [poly2rbox(np.array([num]),use_pi=True, use_gaussian=False).tolist()[0] for num in l[:,1:].tolist()]
+                    }
+            )
+        
 
         nl = len(l)
         if nl:
