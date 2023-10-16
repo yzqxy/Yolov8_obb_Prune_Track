@@ -101,18 +101,28 @@ class C2fPruned(nn.Module):
     def __init__(self, cv1in, cv1out, cv2out,bottle_args, n=1, shortcut=False, g=1, e=0.5):  # ch_in, ch_out, number, shortcut, groups, expansion
         super().__init__()
         #bottle_args [40, 40, 40, [[20, 32, 32], [20, 32, 32]], 2, 256]
-        cv2in=bottle_args[-1][-1]
+        cv2in=0
+        for i in range(n):
+            cv2in=cv2in+bottle_args[i][-1]
+
         self.bottle_args=bottle_args
         self.c = bottle_args[0][0]  # hidden channels
         self.cv1 = Conv(cv1in, cv1out, 1, 1)
         self.cv2 = Conv(cv2in+cv1out, cv2out, 1)  # optional act=FReLU(c2)
-        if n>1:
-            n=1
+
         self.m = nn.ModuleList(Bottleneck_C2f(*bottle_args[k], shortcut, g, k=((3, 3), (3, 3)), e=1.0) for k in range(n))
 
     def forward(self, x):
+        # print('x',x.shape)
+        # print('self.m',self.m)
         y = list(self.cv1(x).split((self.c, self.c), 1))
         y.extend(m(y[-1]) for m in self.m)  
+        # print('y0',y[0].shape)
+        # print('y1',y[1].shape)
+        # print('self.cv1',self.cv1)
+        # print('self.cv2',self.cv2)
+
+        # print('torch.cat(y, 1)',torch.cat(y, 1).shape)
         return self.cv2(torch.cat(y, 1))
 
 
