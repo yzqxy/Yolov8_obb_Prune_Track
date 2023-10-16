@@ -295,6 +295,8 @@ class ModelPruned(nn.Module):
 def parse_pruned_model(maskbndict, d, ch):  # model_dict, input_channels(3)
     LOGGER.info(f"\n{'':>3}{'from':>18}{'n':>3}{'params':>10}  {'module':<40}{'arguments':<30}")
     nc, gd, gw = d['nc'], d['depth_multiple'], d['width_multiple']
+    print('gd',gd)
+    print('gw',gw)
     fromlayer = []
     from_to_map = {}
     layers, save, c2 = [], [], ch[-1]  # layers, savelist, ch out
@@ -325,85 +327,87 @@ def parse_pruned_model(maskbndict, d, ch):  # model_dict, input_channels(3)
             fromlayer.append(named_m_bn)
 
         elif m in [C2fPruned]:
-            #model.4和6的cf2为n=2层数更多需要注意规则
-            if named_m_base == 'model.4' or named_m_base == 'model.6':
-                args_list=[]
-                for q in range(n):
-                    named_m_cv1_bn = named_m_base + ".{}.cv1.bn".format(q)
-                    named_m_cv2_bn = named_m_base + ".{}.cv2.bn".format(q)
+            # #model.4和6的cf2为n=2层数更多需要注意规则
+            # if (named_m_base == 'model.4' and gw==0.25) or (named_m_base == 'model.6' and gw==0.25):
+            #     args_list=[]
+
+            #     for q in range(n):
+            #         named_m_cv1_bn = named_m_base + ".{}.cv1.bn".format(q)
+            #         named_m_cv2_bn = named_m_base + ".{}.cv2.bn".format(q)
                    
-                    from_to_map[named_m_cv2_bn] = fromlayer[f]
+            #         from_to_map[named_m_cv2_bn] = fromlayer[f]
                     
-                    cv1in = ch[f]
+            #         cv1in = ch[f]
 
-                    cv1out = int(maskbndict[named_m_cv1_bn].sum())
-                    cv2out = int(maskbndict[named_m_cv2_bn].sum())
+            #         cv1out = int(maskbndict[named_m_cv1_bn].sum())
+            #         cv2out = int(maskbndict[named_m_cv2_bn].sum())
                     
-                    c3fromlayer = [named_m_cv1_bn]
+            #         c3fromlayer = [named_m_cv1_bn]
 
-                    named_m_bottle_cv1_bn = named_m_base + ".{}.m.0.cv1.bn".format(q)
-                    named_m_bottle_cv2_bn = named_m_base + ".{}.m.0.cv2.bn".format(q)
+            #         named_m_bottle_cv1_bn = named_m_base + ".{}.m.0.cv1.bn".format(q)
+            #         named_m_bottle_cv2_bn = named_m_base + ".{}.m.0.cv2.bn".format(q)
   
 
-                    bottle_cv1out = int(maskbndict[named_m_bottle_cv1_bn].sum())
-                    bottle_cv2out = int(maskbndict[named_m_bottle_cv2_bn].sum())
+            #         bottle_cv1out = int(maskbndict[named_m_bottle_cv1_bn].sum())
+            #         bottle_cv2out = int(maskbndict[named_m_bottle_cv2_bn].sum())
 
-                    bottle_args = []
-                    #Bottleneck_C2f的传参，int(cv1in/2)是该模块的split操作
-                    bottle_args.append([int(cv1out/2), bottle_cv1out, bottle_cv2out])
-                    from_to_map[named_m_bottle_cv1_bn] = c3fromlayer[0]
-                    from_to_map[named_m_bottle_cv2_bn] = named_m_bottle_cv1_bn
-                    c3fromlayer.append(named_m_bottle_cv2_bn)
+            #         bottle_args = []
+            #         #Bottleneck_C2f的传参，int(cv1in/2)是该模块的split操作
+            #         bottle_args.append([int(cv1out/2), bottle_cv1out, bottle_cv2out])
+            #         from_to_map[named_m_bottle_cv1_bn] = c3fromlayer[0]
+            #         from_to_map[named_m_bottle_cv2_bn] = named_m_bottle_cv1_bn
+            #         c3fromlayer.append(named_m_bottle_cv2_bn)
 
-                    from_to_map[named_m_cv2_bn] = [c3fromlayer[-1], named_m_cv1_bn]
-                    if q ==0:
-                        args = [cv1in, cv1out, cv2out, n, args[-1]]
-                        args.insert(3, bottle_args)
-                        args_list.append(args)
-                        from_to_map[named_m_cv1_bn] = fromlayer[f]
-                    else:
-                        args = [args_list[0][2], cv1out, cv2out, n, args[-1]]
-                        args.insert(3, bottle_args)
-                        args_list.append(args)
-                        from_to_map[named_m_cv1_bn] = named_m_base + ".0.cv2.bn"
+            #         from_to_map[named_m_cv2_bn] = [c3fromlayer[-1], named_m_cv1_bn]
+            #         if q ==0:
+            #             args = [cv1in, cv1out, cv2out, 1, args[-1]]
+            #             args.insert(3, bottle_args)
+            #             args_list.append(args)
+            #             from_to_map[named_m_cv1_bn] = fromlayer[f]
+            #         else:
+            #             args = [args_list[0][2], cv1out, cv2out, 1, args[-1]]
+            #             args.insert(3, bottle_args)
+            #             args_list.append(args)
+            #             from_to_map[named_m_cv1_bn] = named_m_base + ".0.cv2.bn"
 
-                c2 = cv2out
-                fromlayer.append(named_m_cv2_bn)    
-                print('args_list',args_list)
-                n = 2
-            
-            else :
-                named_m_cv1_bn = named_m_base + ".cv1.bn"
-                named_m_cv2_bn = named_m_base + ".cv2.bn"
-                from_to_map[named_m_cv1_bn] = fromlayer[f]
-                fromlayer.append(named_m_cv2_bn)
+            #     c2 = cv2out
+            #     fromlayer.append(named_m_cv2_bn)    
+            #     print('args_list',args_list)
+            #     n = 2
+            # else :
+            named_m_cv1_bn = named_m_base + ".cv1.bn"
+            named_m_cv2_bn = named_m_base + ".cv2.bn"
+            from_to_map[named_m_cv1_bn] = fromlayer[f]
+            fromlayer.append(named_m_cv2_bn)
 
-                cv1in = ch[f]
+            cv1in = ch[f]
+            cv1out = int(maskbndict[named_m_cv1_bn].sum())
+            cv2out = int(maskbndict[named_m_cv2_bn].sum())
 
-                cv1out = int(maskbndict[named_m_cv1_bn].sum())
-                cv2out = int(maskbndict[named_m_cv2_bn].sum())
+            args = [cv1in, cv1out, cv2out, n, args[-1]]
+            bottle_args = []
+            c3fromlayer = [named_m_cv1_bn]
 
-                args = [cv1in, cv1out, cv2out, n, args[-1]]
-                bottle_args = []
-                c3fromlayer = [named_m_cv1_bn]
-                for p in range(n):
-                    named_m_bottle_cv1_bn = named_m_base + ".m.{}.cv1.bn".format(p)
-                    named_m_bottle_cv2_bn = named_m_base + ".m.{}.cv2.bn".format(p)
+            for p in range(n):
+                named_m_bottle_cv1_bn = named_m_base + ".m.{}.cv1.bn".format(p)
+                named_m_bottle_cv2_bn = named_m_base + ".m.{}.cv2.bn".format(p)
 
 
-                    bottle_cv1out = int(maskbndict[named_m_bottle_cv1_bn].sum())
-                    bottle_cv2out = int(maskbndict[named_m_bottle_cv2_bn].sum())
-     
-                    bottle_args.append([int(cv1out/2), bottle_cv1out, bottle_cv2out])
-                    from_to_map[named_m_bottle_cv1_bn] = c3fromlayer[p]
-                    from_to_map[named_m_bottle_cv2_bn] = named_m_bottle_cv1_bn
-                    c3fromlayer.append(named_m_bottle_cv2_bn)
-                args.insert(3, bottle_args)
+                bottle_cv1out = int(maskbndict[named_m_bottle_cv1_bn].sum())
+                bottle_cv2out = int(maskbndict[named_m_bottle_cv2_bn].sum())
 
-                c2 = cv2out
-                n = 1
-                from_to_map[named_m_cv2_bn] = [c3fromlayer[-1], named_m_cv1_bn]
-                # print('from_to_map',from_to_map)
+                bottle_args.append([int(cv1out/2), bottle_cv1out, bottle_cv2out])
+                from_to_map[named_m_bottle_cv1_bn] = c3fromlayer[p]
+                from_to_map[named_m_bottle_cv2_bn] = named_m_bottle_cv1_bn
+                c3fromlayer.append(named_m_bottle_cv2_bn)
+            if n>1:
+                bottle_args[1][0]=bottle_args[0][2]                    
+            args.insert(3, bottle_args)
+
+            c2 = cv2out
+            n = 1
+            from_to_map[named_m_cv2_bn] = c3fromlayer
+
         elif m in [SPPFPruned]:
             named_m_cv1_bn = named_m_base + ".cv1.bn"
             named_m_cv2_bn = named_m_base + ".cv2.bn"
