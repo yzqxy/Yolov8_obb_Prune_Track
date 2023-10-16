@@ -8,21 +8,12 @@
 
 
 
-path: /home/yuanzhengqian/yolov5_obb-master/dataset/tading/ # dataset root dir
-# path: /home/yuanzhengqian/yolov8_obb/datasets/35kv_tading_230617/ # dataset root dir
+path: /dataset/your data/ # dataset root dir
 train: train.txt #images   # train images (relative to 'path') 
 val: val.txt #images  # val images (relative to 'path') 
 test: val.txt  #images # test images (optional)
 
 
 nc: 2  # number of classes
-names: ['tading','jyz_r']  
+names: ['1','2']  
 
-# path: /home/yuanzhengqian/yolov8_obb/datasets/tading # dataset root dir
-# train: train.txt #images   # train images (relative to 'path') 
-# val: val.txt #images  # val images (relative to 'path') 
-# test: val.txt  #images # test images (optional)
-
-
-# nc: 1  # number of classes
-# names: ['tading',]  
