@@ -526,20 +526,28 @@ def run_prune(data,
     changed_state = []
     for ((layername, layer),(pruned_layername, pruned_layer)) in zip(model.named_modules(), pruned_model.named_modules()):
         assert layername == pruned_layername
+        # import pdb
+        # pdb.set_trace()
         if isinstance(layer, nn.Conv2d) and not layername.startswith("model.22"):
+            # print('layer',layer)
+            # print('pruned_layer',pruned_layer)
+            # print('layername',layername)
             convname = layername[:-4]+"bn"
+            # print('convname',convname)
             if convname in from_to_map.keys():
                 former = from_to_map[convname]
+                # print('former',former)
                 if isinstance(former, str):
                     #convname model.4.0.m.0.cv1.bn，former model.4.0.cv1.bn
                     #layer Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
                     out_idx = np.squeeze(np.argwhere(np.asarray(maskbndict[layername[:-4]+"bn"].cpu().numpy())))
                     in_idx = np.squeeze(np.argwhere(np.asarray(maskbndict[former].cpu().numpy())))
-                    # 判断是不是c2f中的bot块，如果是需要split一半，直接获取一半的输入通道数（可能这块的操作不够完美）
+                    # 判断是不是c2f中的bot块，如果是需要split一半，直接获取一半的输入通道数
                     if former[8:]=='cv1.bn' or former[10:]=='cv1.bn' or former[9:]=='cv1.bn' or former[11:]=='cv1.bn':
                         len_indix=int(len(in_idx)/2)
                         in_idx=np.arange(len_indix)
  
+
                     w = layer.weight.data[:, in_idx, :, :].clone()
                     if len(w.shape) ==3:     # remain only 1 channel.
                         w = w.unsqueeze(1)
@@ -579,21 +587,20 @@ def run_prune(data,
 
         if isinstance(layer, nn.Conv2d) and layername.startswith("model.22"):
             convname = layername[:-4]+"bn"
-            print('convname',convname)
             if convname in from_to_map.keys():               
                 former = from_to_map[convname]
-                print('former',former)
                 if isinstance(former, str):
                     #convname model.4.0.m.0.cv1.bn，former model.4.0.cv1.bn
                     #layer Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
                     out_idx =  np.squeeze(np.argwhere(np.asarray(maskbndict[layername[:-4]+"bn"].cpu().numpy())))
                     in_idx = np.squeeze(np.argwhere(np.asarray(maskbndict[former].cpu().numpy())))
                     w = layer.weight.data[:, in_idx, :, :].clone()
-
                     if len(w.shape) ==3:     # remain only 1 channel.
                         w = w.unsqueeze(1)
                     w = w[out_idx, :, :, :].clone()
+                    # print('w',w.shape)                  
                     pruned_layer.weight.data = w.clone()
+
 
     missing = [i for i in pruned_model_state.keys() if i not in changed_state]
 
@@ -780,9 +787,9 @@ def run_prune(data,
 
 def parse_opt():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data', type=str, default=ROOT / 'data/yolov8obb_demo.yaml ', help='dataset.yaml path')
-    parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'runs/train/exp/weights/last.pt', help='model.pt path(s)')
-    parser.add_argument('--cfg', type=str, default='models/yaml/yolov8n.yaml', help='model.yaml path')
+    parser.add_argument('--data', type=str, default=ROOT / 'data/voc.yaml', help='dataset.yaml path')
+    parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'runs/train/exp47/weights/last.pt', help='model.pt path(s)')
+    parser.add_argument('--cfg', type=str, default='models/yolov5s.yaml', help='model.yaml path')
     parser.add_argument('--close_head', action='store_true')
     parser.add_argument('--percent', type=float, default=0.4, help='prune percentage')
     parser.add_argument('--batch-size', type=int, default=32, help='batch size')
