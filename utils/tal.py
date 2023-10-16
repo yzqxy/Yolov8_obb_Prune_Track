@@ -206,8 +206,11 @@ class TaskAlignedAssigner(nn.Module):
             align_metric = bbox_scores.pow(2) * overlaps_distance.pow(1)
             return align_metric, overlaps_distance
         else:
-            overlaps[mask_gt]=rotated_iou_similarity(gt_boxes,pd_boxes)
-            align_metric = bbox_scores.pow(2) * overlaps.pow(1)
+            if len(gt_boxes)==0:
+                align_metric = bbox_scores.pow(2) * overlaps.pow(1)
+            else:
+                overlaps[mask_gt]=rotated_iou_similarity(gt_boxes,pd_boxes)
+                align_metric = bbox_scores.pow(2) * overlaps.pow(1)
             return align_metric, overlaps
 
 
