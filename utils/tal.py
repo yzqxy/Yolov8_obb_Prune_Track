@@ -83,13 +83,13 @@ def rotated_iou_similarity(box1, box2):
     Return:
         iou (Tensor): iou between box1 and box2 with the shape [N]
     """
-    rotated_ious = []
-    for b1, b2 in zip(box1, box2):
-        b1=b1.unsqueeze(0)
-        b2=b2.unsqueeze(0)
-        rotated_ious.append(box_iou_rotated(b1, b2).squeeze(0).squeeze(0))
-    return torch.stack(rotated_ious, axis=0)
-
+    # rotated_ious = []
+    # for b1, b2 in zip(box1, box2):
+    #     b1=b1.unsqueeze(0)
+    #     b2=b2.unsqueeze(0)
+    #     rotated_ious.append(box_iou_rotated(b1, b2).squeeze(0).squeeze(0))
+    # return torch.stack(rotated_ious, axis=0)
+    return box_iou_rotated(box1, box2, aligned=True)
 
 class TaskAlignedAssigner(nn.Module):
 
