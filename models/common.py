@@ -25,6 +25,7 @@ from utils.general import (LOGGER, check_requirements, check_suffix, check_versi
                            make_divisible, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh)
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import copy_attr, time_sync
+import torch.nn.functional as F
 
 #----------------------------------------------------------------
 
@@ -600,6 +601,344 @@ class Concat(nn.Module):
 
     def forward(self, x):
         return torch.cat(x, self.d)
+
+#------------------BoT3------------
+
+class MHSA(nn.Module):
+    def __init__(self, n_dims, width=14, height=14, heads=4, pos_emb=False):
+        super(MHSA, self).__init__()
+ 
+        self.heads = heads
+        self.query = nn.Conv2d(n_dims, n_dims, kernel_size=1)
+        self.key = nn.Conv2d(n_dims, n_dims, kernel_size=1)
+        self.value = nn.Conv2d(n_dims, n_dims, kernel_size=1)
+        self.pos = pos_emb
+        if self.pos:
+            self.rel_h_weight = nn.Parameter(torch.randn([1, heads, (n_dims) // heads, 1, int(height)]),
+                                             requires_grad=True)
+            self.rel_w_weight = nn.Parameter(torch.randn([1, heads, (n_dims) // heads, int(width), 1]),
+                                             requires_grad=True)
+        self.softmax = nn.Softmax(dim=-1)
+ 
+    def forward(self, x):
+        n_batch, C, width, height = x.size()
+        q = self.query(x).view(n_batch, self.heads, C // self.heads, -1)
+        k = self.key(x).view(n_batch, self.heads, C // self.heads, -1)
+        v = self.value(x).view(n_batch, self.heads, C // self.heads, -1)
+        # print('q shape:{},k shape:{},v shape:{}'.format(q.shape,k.shape,v.shape))  #1,4,64,256
+        content_content = torch.matmul(q.permute(0, 1, 3, 2), k)  # 1,C,h*w,h*w
+        # print("qkT=",content_content.shape)
+        c1, c2, c3, c4 = content_content.size()
+        if self.pos:
+            # print("old content_content shape",content_content.shape) #1,4,256,256
+            content_position = (self.rel_h_weight + self.rel_w_weight).view(1, self.heads, C // self.heads, -1).permute(
+                0, 1, 3, 2)  # 1,4,1024,64
+ 
+            content_position = torch.matmul(content_position, q)  # ([1, 4, 1024, 256])
+            content_position = content_position if (
+                        content_content.shape == content_position.shape) else content_position[:, :, :c3, ]
+            assert (content_content.shape == content_position.shape)
+            # print('new pos222-> shape:',content_position.shape)
+            # print('new content222-> shape:',content_content.shape)
+            energy = content_content + content_position
+        else:
+            energy = content_content
+        attention = self.softmax(energy)
+        out = torch.matmul(v, attention.permute(0, 1, 3, 2))  # 1,4,256,64
+        out = out.view(n_batch, C, width, height)
+        return out
+ 
+ 
+class BottleneckTransformer(nn.Module):
+    # Transformer bottleneck
+    # expansion = 1
+ 
+    def __init__(self, c1, c2, stride=1, heads=4, mhsa=True, resolution=None, expansion=1):
+        super(BottleneckTransformer, self).__init__()
+        c_ = int(c2 * expansion)
+        self.cv1 = Conv(c1, c_, 1, 1)
+        # self.bn1 = nn.BatchNorm2d(c2)
+        if not mhsa:
+            self.cv2 = Conv(c_, c2, 3, 1)
+        else:
+            self.cv2 = nn.ModuleList()
+            self.cv2.append(MHSA(c2, width=int(resolution[0]), height=int(resolution[1]), heads=heads))
+            if stride == 2:
+                self.cv2.append(nn.AvgPool2d(2, 2))
+            self.cv2 = nn.Sequential(*self.cv2)
+        self.shortcut = c1 == c2
+        if stride != 1 or c1 != expansion * c2:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(c1, expansion * c2, kernel_size=1, stride=stride),
+                nn.BatchNorm2d(expansion * c2)
+            )
+        self.fc1 = nn.Linear(c2, c2)
+ 
+    def forward(self, x):
+        out = x + self.cv2(self.cv1(x)) if self.shortcut else self.cv2(self.cv1(x))
+        return out
+ 
+ 
+class BoT3(nn.Module):
+    # CSP Bottleneck with 3 convolutions
+    def __init__(self, c1, c2, n=1, e=0.5, e2=1, w=20, h=20):  # ch_in, ch_out, number, , expansion,w,h
+        super(BoT3, self).__init__()
+        c_ = int(c2 * e)  # hidden channels
+        self.cv1 = Conv(c1, c_, 1, 1)
+        self.cv2 = Conv(c1, c_, 1, 1)
+        self.cv3 = Conv(2 * c_, c2, 1)  # act=FReLU(c2)
+        self.m = nn.Sequential(
+            *[BottleneckTransformer(c_, c_, stride=1, heads=4, mhsa=True, resolution=(w, h), expansion=e2) for _ in
+              range(n)])
+        # self.m = nn.Sequential(*[CrossConv(c_, c_, 3, 1, g, 1.0, shortcut) for _ in range(n)])
+ 
+    def forward(self, x):
+        return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1))
+
+
+
+#-----------------AFPN-----------------
+
+class Upsample(nn.Module):
+    def __init__(self, in_channels, out_channels, scale_factor=2):
+        super(Upsample, self).__init__()
+ 
+        self.upsample = nn.Sequential(
+            Conv(in_channels, out_channels, 1),
+            # nn.Upsample(scale_factor=scale_factor, mode='bilinear')
+            nn.Upsample(scale_factor=scale_factor,  mode='nearest')
+        )
+ 
+        # carafe
+        # from mmcv.ops import CARAFEPack
+        # self.upsample = nn.Sequential(
+        #     BasicConv(in_channels, out_channels, 1),
+        #     CARAFEPack(out_channels, scale_factor=scale_factor)
+        # )
+ 
+    def forward(self, x):
+        x = self.upsample(x)
+ 
+        return x
+ 
+class Downsample(nn.Module):
+    def __init__(self, in_channels, out_channels,scale_factor=2):
+        super(Downsample, self).__init__()
+ 
+        self.downsample = nn.Sequential(
+            Conv(in_channels, out_channels, scale_factor, scale_factor, 0)
+        )
+ 
+    def forward(self, x):
+        x = self.downsample(x)
+ 
+        return x
+ 
+class ASFF_2(nn.Module):
+    def __init__(self, inter_dim=512,level=0,channel=[64,128]):
+        super(ASFF_2, self).__init__()
+ 
+        self.inter_dim = inter_dim
+        compress_c = 8
+ 
+        self.weight_level_1 = Conv(self.inter_dim, compress_c, 1, 1)
+        self.weight_level_2 = Conv(self.inter_dim, compress_c, 1, 1)
+ 
+        self.weight_levels = nn.Conv2d(compress_c * 2, 2, kernel_size=1, stride=1, padding=0)
+ 
+        self.conv = Conv(self.inter_dim, self.inter_dim, 3, 1)
+        self.upsample = Upsample(channel[1],channel[0])
+        self.downsample = Downsample(channel[0],channel[1])
+        self.level = level
+ 
+ 
+    def forward(self, x):
+        input1, input2 = x
+        if self.level == 0:
+            input2 = self.upsample(input2)
+        elif self.level == 1:
+            input1 = self.downsample(input1)
+ 
+        level_1_weight_v = self.weight_level_1(input1)
+        level_2_weight_v = self.weight_level_2(input2)
+ 
+        levels_weight_v = torch.cat((level_1_weight_v, level_2_weight_v), 1)
+        levels_weight = self.weight_levels(levels_weight_v)
+        levels_weight = F.softmax(levels_weight, dim=1)
+ 
+        fused_out_reduced = input1 * levels_weight[:, 0:1, :, :] + \
+                            input2 * levels_weight[:, 1:2, :, :]
+ 
+        out = self.conv(fused_out_reduced)
+ 
+        return out
+ 
+ 
+class ASFF_3(nn.Module):
+    def __init__(self, inter_dim=512,level=0,channel=[64,128,256]):
+        super(ASFF_3, self).__init__()
+ 
+        self.inter_dim = inter_dim
+        compress_c = 8
+ 
+        self.weight_level_1 = Conv(self.inter_dim, compress_c, 1, 1)
+        self.weight_level_2 = Conv(self.inter_dim, compress_c, 1, 1)
+        self.weight_level_3 = Conv(self.inter_dim, compress_c, 1, 1)
+ 
+        self.weight_levels = nn.Conv2d(compress_c * 3, 3, kernel_size=1, stride=1, padding=0)
+ 
+        self.conv = Conv(self.inter_dim, self.inter_dim, 3, 1)
+ 
+ 
+        self.level = level
+        if self.level == 0:
+            self.upsample4x = Upsample(channel[2],channel[0], scale_factor=4)
+            self.upsample2x = Upsample(channel[1], channel[0], scale_factor=2)
+        elif self.level == 1:
+            self.upsample2x1 = Upsample(channel[2], channel[1], scale_factor=2)
+            self.downsample2x1 = Downsample(channel[0],channel[1], scale_factor=2)
+        elif self.level == 2:
+            self.downsample2x = Downsample(channel[1], channel[2], scale_factor=2)
+            self.downsample4x = Downsample(channel[0], channel[2], scale_factor=4)
+ 
+    def forward(self, x):
+        input1, input2, input3 = x
+        if self.level == 0:
+            input2 = self.upsample2x(input2)
+            input3= self.upsample4x(input3)
+        elif self.level == 1:
+            input3 = self.upsample2x1(input3)
+            input1 = self.downsample2x1(input1)
+        elif self.level == 2:
+            input1 = self.downsample4x(input1)
+            input2 = self.downsample2x(input2)
+        level_1_weight_v = self.weight_level_1(input1)
+        level_2_weight_v = self.weight_level_2(input2)
+        level_3_weight_v = self.weight_level_3(input3)
+ 
+        levels_weight_v = torch.cat((level_1_weight_v, level_2_weight_v, level_3_weight_v), 1)
+        levels_weight = self.weight_levels(levels_weight_v)
+        levels_weight = F.softmax(levels_weight, dim=1)
+ 
+        fused_out_reduced = input1 * levels_weight[:, 0:1, :, :] + \
+                            input2 * levels_weight[:, 1:2, :, :] + \
+                            input3 * levels_weight[:, 2:, :, :]
+ 
+        out = self.conv(fused_out_reduced)
+ 
+        return out
+
+#----------------------------MobileNetV3-----------------
+
+class h_sigmoid(nn.Module):
+    def __init__(self, inplace=True):
+        super(h_sigmoid, self).__init__()
+        self.relu = nn.ReLU6(inplace=inplace)
+ 
+    def forward(self, x):
+        return self.relu(x + 3) / 6
+ 
+ 
+class h_swish(nn.Module):
+    def __init__(self, inplace=True):
+        super(h_swish, self).__init__()
+        self.sigmoid = h_sigmoid(inplace=inplace)
+ 
+    def forward(self, x):
+        return x * self.sigmoid(x)
+ 
+ 
+class SELayer(nn.Module):
+    def __init__(self, channel, reduction=4):
+        super(SELayer, self).__init__()
+        # Squeeze操作
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        # Excitation操作(FC+ReLU+FC+Sigmoid)
+        self.fc = nn.Sequential(
+            nn.Linear(channel, channel // reduction),
+            nn.ReLU(inplace=True),
+            nn.Linear(channel // reduction, channel),
+            h_sigmoid()
+        )
+ 
+    def forward(self, x):
+        b, c, _, _ = x.size()
+        y = self.avg_pool(x)
+        y = y.view(b, c)
+        y = self.fc(y).view(b, c, 1, 1)  # 学习到的每一channel的权重
+        return x * y
+ 
+ 
+class conv_bn_hswish(nn.Module):
+    """
+    This equals to
+    def conv_3x3_bn(inp, oup, stride):
+        return nn.Sequential(
+            nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
+            nn.BatchNorm2d(oup),
+            h_swish()
+        )
+    """
+ 
+    def __init__(self, c1, c2, stride):
+        super(conv_bn_hswish, self).__init__()
+        self.conv = nn.Conv2d(c1, c2, 3, stride, 1, bias=False)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = h_swish()
+ 
+    def forward(self, x):
+        return self.act(self.bn(self.conv(x)))
+ 
+    def fuseforward(self, x):
+        return self.act(self.conv(x))
+ 
+ 
+class MobileNetV3(nn.Module):
+    def __init__(self, inp, oup, hidden_dim, kernel_size, stride, use_se, use_hs):
+        super(MobileNetV3, self).__init__()
+        assert stride in [1, 2]
+ 
+        self.identity = stride == 1 and inp == oup
+ 
+        # 输入通道数=扩张通道数 则不进行通道扩张
+        if inp == hidden_dim:
+            self.conv = nn.Sequential(
+                # dw
+                nn.Conv2d(hidden_dim, hidden_dim, kernel_size, stride, (kernel_size - 1) // 2, groups=hidden_dim,
+                          bias=False),
+                nn.BatchNorm2d(hidden_dim),
+                h_swish() if use_hs else nn.ReLU(inplace=True),
+                # Squeeze-and-Excite
+                SELayer(hidden_dim) if use_se else nn.Sequential(),
+                # pw-linear
+                nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
+                nn.BatchNorm2d(oup),
+            )
+        else:
+            # 否则 先进行通道扩张
+            self.conv = nn.Sequential(
+                # pw
+                nn.Conv2d(inp, hidden_dim, 1, 1, 0, bias=False),
+                nn.BatchNorm2d(hidden_dim),
+                h_swish() if use_hs else nn.ReLU(inplace=True),
+                # dw
+                nn.Conv2d(hidden_dim, hidden_dim, kernel_size, stride, (kernel_size - 1) // 2, groups=hidden_dim,
+                          bias=False),
+                nn.BatchNorm2d(hidden_dim),
+                # Squeeze-and-Excite
+                SELayer(hidden_dim) if use_se else nn.Sequential(),
+                h_swish() if use_hs else nn.ReLU(inplace=True),
+                # pw-linear
+                nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
+                nn.BatchNorm2d(oup),
+            )
+ 
+    def forward(self, x):
+        y = self.conv(x)
+        if self.identity:
+            return x + y
+        else:
+            return y
 
 
 class DetectMultiBackend(nn.Module):
