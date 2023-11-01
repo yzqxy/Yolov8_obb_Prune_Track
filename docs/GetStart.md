@@ -99,6 +99,9 @@ python export.py --weights  runs/train/exp/weights/best.pt  --batch 1
 python detcet_save_xml.py --save-xml --xml_save_path_dir your_xml_save_path/  --weights  runs/train/exp/weights/best.pt   --source dataset/your datafile/images/val/   --img 640 --device 0 --conf-thres 0.25 --iou-thres 0.2 
 ```
 
+**8. yaml file**
+除了常规的yolov8n-x的模型结构，还提供了一些轻量化选择，如backbone替换为mobilnetv3，neck替换为AFPN，以及各种注意力机制和transformer结构等等.
+
 # Prune Your Model
 **1.Sparity Train**
 ```shell
