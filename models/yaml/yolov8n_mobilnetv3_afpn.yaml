@@ -1,0 +1,45 @@
+# Ultralytics YOLO 🚀, GPL-3.0 license
+
+# Parameters
+nc: 2  # number of classes
+depth_multiple: 0.33  # scales module repeats
+width_multiple: 0.25  # scales convolution channels
+
+# YOLOv8.0n backbone
+backbone:
+  # [from, repeats, module, args]
+  [[-1, 1, conv_bn_hswish, [16, 2]],             # 0-p1/2   320*320
+   [-1, 1, MobileNetV3, [16,  16, 3, 2, 1, 0]],  # 1-p2/4   160*160
+   [-1, 1, MobileNetV3, [24,  72, 3, 2, 0, 0]],  # 2-p3/8   80*80
+   [-1, 1, MobileNetV3, [24,  88, 3, 1, 0, 0]],  # 3        80*80
+   [-1, 1, MobileNetV3, [40,  96, 5, 2, 1, 1]],  # 4-p4/16  40*40
+   [-1, 1, MobileNetV3, [40, 240, 5, 1, 1, 1]],  # 5        40*40
+   [-1, 1, MobileNetV3, [40, 240, 5, 1, 1, 1]],  # 6        40*40
+   [-1, 1, MobileNetV3, [48, 120, 5, 1, 1, 1]],  # 7        40*40
+   [-1, 1, MobileNetV3, [48, 144, 5, 1, 1, 1]],  # 8        40*40
+   [-1, 1, MobileNetV3, [96, 288, 5, 2, 1, 1]],  # 9-p5/32  20*20
+   [-1, 1, MobileNetV3, [96, 576, 5, 1, 1, 1]],  # 10       20*20
+   [-1, 1, MobileNetV3, [96, 576, 5, 1, 1, 1]],  # 11       20*20
+  ]
+head:
+  [[3, 1, Conv, [128, 1, 1]], # 12
+   [8, 1, Conv, [256, 1, 1]], # 13
+ 
+   [[12, 13], 1, ASFF_2, [128, 0]], # 14
+   [[12, 13], 1, ASFF_2, [256, 1]], # 15
+ 
+   [-2, 1, C2f, [128, False]], # 16
+   [-2, 1, C2f, [256, False]], # 17
+ 
+   [11, 1, Conv, [512, 1, 1]], # 18
+ 
+   [[16, 17, 18], 1, ASFF_3, [128, 0]], # 19
+   [[16, 17, 18], 1, ASFF_3, [256, 1]], # 20
+   [[16, 17, 18], 1, ASFF_3, [512, 2]], # 21
+ 
+   [19, 1, C2f, [128, False]],
+   [20, 1, C2f, [256, False]],
+   [21, 1, C2f, [512, False]],
+
+   [[22, 23, 24], 1, Detect_v8, [nc]],
+  ]  # Detect(P3, P4, P5)
